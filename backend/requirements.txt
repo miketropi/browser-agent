@@ -1,0 +1,22 @@
+fastapi==0.109.1
+uvicorn==0.27.1
+python-dotenv==1.0.1
+pydantic==2.6.1
+sqlalchemy==2.0.27
+alembic==1.13.1
+pytest==8.0.0
+httpx==0.26.0
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-multipart==0.0.9 
+setuptools==65.5.0
+wheel>=0.42.0
+pywebview==5.4
+langchain-openai==0.0.5
+python-dotenv>=1.0.0
+asyncio==3.4.3
+browser-use
+pydantic
+
+# Logging package
+python-json-logger==2.0.7  # JSON formatting for logs
