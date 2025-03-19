@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react'
 import './App.css'
 import MessageBox from './components/MessageBox'
-
+import DashboardTab from './components/DashboardTab'
+import { LayoutDashboard, Settings, NotebookText } from 'lucide-react';
+import Welcome from './components/Welcome'; 
+import TaskBoard from './components/TaskBoard';
 function App() {
   const [count, setCount] = useState(0)
   const [message, setMessage] = useState('Waiting for backend...')
@@ -17,7 +20,7 @@ function App() {
         await new Promise((resolve) => {
           window.addEventListener('pywebviewready', () => {
             console.log('pywebview is ready!')
-            resolve()
+            resolve() 
           })
         })
 
@@ -70,19 +73,49 @@ function App() {
     browserAgent(message)
   }
 
+  const tabs = [
+    {
+      id: 'dashboard',
+      label: 'Dashboard',
+      icon: <LayoutDashboard size={20} />,
+      content: <div>
+        <h2>Hi, </h2>
+        {/* <Welcome /> */}
+      </div>
+    },
+    {
+      id: 'tasks',
+      label: 'Tasks',
+      icon: <NotebookText size={20} />,
+      content: <TaskBoard />
+    },
+    {
+      id: 'settings',
+      label: 'Settings',
+      icon: <Settings size={20} />,
+      content: <div>Settings</div>
+    }
+  ]
+
+  const handleTabChange = (tabId) => {
+    console.log('Tab changed to:', tabId)
+  }
+
   return (
-    <div className="flex flex-col items-center justify-center h-screen p-4">
+    <div className="font-sans flex flex-col items-center justify-center h-screen bg-gray-50 dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700">
       {/* <h1>Browser Agent { backendStatus }</h1> */}
       {/* <button onClick={browserAgent}>Run Browser Agent</button> 
       <p>{ message }</p> */}
-      <MessageBox onSend={handleSend} />
+      {/* <MessageBox onSend={handleSend} />
       {
         agentResult && (
           <div className="mt-4 p-4 bg-gray-100 rounded-lg shadow-md">
             <p>{ agentResult }</p>
           </div>
         )
-      }
+      } */}
+
+      <DashboardTab tabs={tabs} defaultActiveTab="dashboard" onTabChange={handleTabChange} />
     </div>
   )
 }

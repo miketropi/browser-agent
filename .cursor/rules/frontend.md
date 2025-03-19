@@ -111,6 +111,58 @@ if (import.meta.env.DEV) {
 - Handle async errors properly
 - Show user-friendly error messages
 
+## Tailwind CSS Guidelines
+
+### Organization
+- Use consistent class ordering:
+  1. Layout (position, display, z-index)
+  2. Spacing (margin, padding)
+  3. Sizing (width, height)
+  4. Typography
+  5. Visual (colors, backgrounds, borders)
+  6. Interactive states
+
+### Best Practices
+- Use @apply for frequently repeated class combinations
+```css
+@layer components {
+  .btn-primary {
+    @apply px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors;
+  }
+}
+```
+
+- Create custom theme configuration in `tailwind.config.js`
+- Utilize Tailwind's responsive prefixes consistently (sm:, md:, lg:, xl:)
+- Implement dark mode using the `dark:` prefix
+- Use arbitrary values sparingly (e.g., `[w-68px]`)
+
+### Component Structure
+- Group related classes with line breaks for readability
+```jsx
+<div
+  className={`
+    flex items-center justify-between
+    px-4 py-3
+    bg-white dark:bg-gray-800
+    border border-gray-200 dark:border-gray-700
+    rounded-lg shadow-sm
+  `}
+>
+```
+
+### Utilities
+- Create reusable utility classes for common patterns
+- Use CSS Grid and Flexbox utilities effectively
+- Leverage container queries with `@container`
+- Implement consistent spacing scales
+
+### Maintainability
+- Use CSS variables for dynamic values
+- Implement proper responsive design patterns
+- Create component-specific variants when needed
+- Document custom utilities and components
+
 ## Build & Deployment
 - Optimize build configuration
 - Implement proper CI/CD pipeline
