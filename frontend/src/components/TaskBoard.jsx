@@ -5,21 +5,32 @@ const initialTasks = [
   {
     id: 1,
     target_website: 'https://www.fleetcard.com.au',
-    google_search_keyword: 'compare fuel cards',
+    search_keyword: 'compare fuel cards',
     status: 'pending', // pending, doing, completed, failed
     loop: 1,
   },
   {
     id: 2,
     target_website: 'https://www.fleetcard.com.au',
-    google_search_keyword: 'fuel card',
+    search_keyword: 'fuel card',
     status: 'pending', // pending, doing, completed, failed
     loop: 1,
   }
 ];
 
 export default function TaskBoard() {
-  const [tasks, setTasks] = useState(initialTasks);
+  const [tasks, setTasks] = useState([]);
+
+  // get tasks from backend
+  const getTasks = async () => {
+    const result = await window.pywebview.api.get_tasks()
+    console.log('___Get tasks result:', typeof result.tasks)
+    setTasks([...result.tasks])
+  }
+
+  useEffect(() => {
+    getTasks()
+  }, [])
 
   const handleTaskUpdate = (updatedTasks) => {
     setTasks(updatedTasks);

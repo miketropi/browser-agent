@@ -17,6 +17,7 @@ python-dotenv>=1.0.0
 asyncio==3.4.3
 browser-use
 pydantic
+aiosqlite==0.19.0
 
 # Logging package
 python-json-logger==2.0.7  # JSON formatting for logs
