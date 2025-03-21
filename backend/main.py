@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import webview as pywebview
+import subprocess
+import sys
 import os
 from pydantic import SecretStr
 from database import Base, engine
@@ -22,6 +24,24 @@ load_dotenv()
 
 # Initialize FastAPI app
 app = FastAPI()
+
+def ensure_browsers_installed():
+    try:
+        # Check if browsers are already installed
+        browser_dir = os.path.expanduser("~/.cache/ms-playwright")
+        if not os.path.exists(browser_dir) or not os.listdir(browser_dir):
+            print("Installing Playwright browsers...")
+            
+            # Run Playwright CLI install command
+            subprocess.run(
+                [sys.executable, "-m", "playwright", "install", "chromium", "--with-deps"], 
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE
+            )
+    except subprocess.CalledProcessError as e:
+        print(f"Failed to install browsers: {e.stderr.decode()}")
+        sys.exit(1)
 
 # Initialize database
 @app.on_event("startup")
@@ -74,7 +94,7 @@ async def run_browser_agent_v2(task):
     """
     try:
         target_website = task.get('target_website')
-        google_search_keyword = task.get('google_search_keyword')
+        search_keyword = task.get('search_keyword')
         loop_count = task.get('loop', 1)
 
         # Create the task message
@@ -82,7 +102,7 @@ async def run_browser_agent_v2(task):
 1. Access Google:
     * Open your browser and navigate to https://google.com.
 2. Search for the Keyword:
-    * In the Google search bar, type "{google_search_keyword}" and press Enter.
+    * In the Google search bar, type "{search_keyword}" and press Enter.
 3. Locate the Specific Domain in Results:
     * Check the search results for links under the domain {target_website} (very important).
     * If not found on the current page: Scroll to end page click the "Next" button (or next page numbers) at the bottom of Google to check subsequent pages.
@@ -427,4 +447,5 @@ def create_window():
     pywebview.start(debug=True)
 
 if __name__ == "__main__":
+    ensure_browsers_installed()
     create_window()  
