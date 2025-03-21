@@ -4,7 +4,7 @@ import webview as pywebview
 import subprocess
 import sys
 import os
-from pydantic import SecretStr
+# from pydantic import SecretStr
 from database import Base, engine
 from sqlalchemy.ext.asyncio import AsyncSession
 from models import Task  # Import Task model to ensure it's registered
@@ -25,23 +25,69 @@ load_dotenv()
 # Initialize FastAPI app
 app = FastAPI()
 
+def get_browser_dir():
+    if getattr(sys, 'frozen', False):
+        # Running in a bundle
+        base_dir = os.path.dirname(sys.executable)
+        return os.path.join(base_dir, 'playwright', 'driver', 'package', '.local-browsers')
+    else:
+        # Running in development mode
+        return os.path.expanduser("~/.cache/ms-playwright")
+
 def ensure_browsers_installed():
     try:
-        # Check if browsers are already installed
-        browser_dir = os.path.expanduser("~/.cache/ms-playwright")
+        browser_dir = get_browser_dir()
+        os.makedirs(browser_dir, exist_ok=True)
+        
+        # Set environment variable for Playwright
+        os.environ['PLAYWRIGHT_BROWSERS_PATH'] = browser_dir
+        
         if not os.path.exists(browser_dir) or not os.listdir(browser_dir):
-            print("Installing Playwright browsers...")
-            
-            # Run Playwright CLI install command
-            subprocess.run(
-                [sys.executable, "-m", "playwright", "install", "chromium", "--with-deps"], 
-                check=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE
-            )
-    except subprocess.CalledProcessError as e:
-        print(f"Failed to install browsers: {e.stderr.decode()}")
-        sys.exit(1)
+            print(f"Installing Playwright browsers to {browser_dir}...")
+            try:
+                # Install both driver and browser in one command
+                print("Installing Playwright driver and browser...")
+                result = subprocess.run(
+                    [sys.executable, "-m", "playwright", "install", "chromium", "--with-deps"],
+                    check=True,
+                    capture_output=True,
+                    text=True,
+                    env=dict(os.environ)
+                )
+                print("Playwright installation completed successfully")
+                print(result.stdout)
+            except subprocess.CalledProcessError as e:
+                print(f"Failed to install Playwright: {e.stderr}")
+                return False
+            except Exception as e:
+                print(f"Unexpected error installing Playwright: {str(e)}")
+                return False
+        return True
+    except Exception as e:
+        print(f"Error in browser installation: {str(e)}")
+        return False
+
+def get_browser():
+    """Get a configured browser instance, installing if necessary"""
+    if not ensure_browsers_installed():
+        print("Warning: Browser installation failed, some features may not work")
+    
+    # Get the browser directory
+    browser_dir = get_browser_dir()
+    
+    # Configure the browser
+    return Browser(
+        config=BrowserConfig(
+            headless=False,
+            # Let Playwright find the browser automatically since we've set PLAYWRIGHT_BROWSERS_PATH
+            browser_path=None,
+            # Set the browser directory in the environment
+            env={"PLAYWRIGHT_BROWSERS_PATH": browser_dir}
+        )
+    )
+
+# Update the browser initialization to use the new function
+browser_use_browser = get_browser()
 
 # Initialize database
 @app.on_event("startup")
@@ -73,14 +119,6 @@ llm = ChatOpenAI(model="gpt-4o")
 #     model='deepseek-reasoner',
 #     api_key=SecretStr(api_key),
 # )
-
-browser_use_browser = Browser(
-    config=BrowserConfig(
-        headless=False,
-        # chrome_instance_path='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',  # macOS path
-        # extra_chromium_args=['--profile-directory=Default'],
-    )
-)
 
 async def run_browser_agent_v2(task):
     """
@@ -430,11 +468,19 @@ class Api:
 
 api = Api()
 
+def is_dev_mode():
+    """Check if running in development mode"""
+    return os.getenv('DEV_MODE') == '1' or not getattr(sys, 'frozen', False)
+
+def get_frontend_url():
+    """Get appropriate frontend URL based on mode"""
+    return 'http://localhost:5173' if is_dev_mode() else '/static/index.html'
+
 def create_window():
     # Create a window with exposed JavaScript API
     window = pywebview.create_window(
         'Amebae SEO',
-        'http://localhost:5173',
+        get_frontend_url(),
         js_api=api,
         width=960,          # Initial width
         height=600,         # Initial height
@@ -447,5 +493,4 @@ def create_window():
     pywebview.start(debug=True)
 
 if __name__ == "__main__":
-    ensure_browsers_installed()
     create_window()  

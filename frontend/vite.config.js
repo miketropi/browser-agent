@@ -12,5 +12,9 @@ export default defineConfig({
   },
   server: {
     port: 5173
+  },
+  build: {
+    outDir: '../backend/static',
+    emptyOutDir: true,
   }
 })
