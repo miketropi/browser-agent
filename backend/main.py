@@ -11,7 +11,7 @@ from task_db_handle import TaskDBHandler
 pywebview.debug = True
 
 from log import LogHistory
-log = LogHistory('../log.json')
+log = LogHistory('log.json')
 
 from langchain_openai import ChatOpenAI
 from browser_use import Agent, AgentHistoryList, Browser, BrowserConfig
