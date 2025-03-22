@@ -74,7 +74,7 @@ async def run_browser_agent_v2(task):
     """
     try:
         target_website = task.get('target_website')
-        google_search_keyword = task.get('google_search_keyword')
+        search_keyword = task.get('search_keyword')
         loop_count = task.get('loop', 1)
 
         # Create the task message
@@ -82,9 +82,9 @@ async def run_browser_agent_v2(task):
 1. Access Google:
     * Open your browser and navigate to https://google.com.
 2. Search for the Keyword:
-    * In the Google search bar, type "{google_search_keyword}" and press Enter.
+    * In the Google search bar, type "{search_keyword}" and press Enter.
 3. Locate the Specific Domain in Results:
-    * Check the search results for links under the domain {target_website} (very important).
+    * Check the search results for links under the domain {target_website} (very important), prioritize results that are "Sponsored".
     * If not found on the current page: Scroll to end page click the "Next" button (or next page numbers) at the bottom of Google to check subsequent pages.
 4. Visit the Target Website:
     * Once you find a result matching the domain, click the link to navigate to {target_website}.

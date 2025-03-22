@@ -11,7 +11,7 @@ python-multipart==0.0.9
 setuptools==75.8.0
 wheel>=0.42.0
 pywebview==5.4
-langchain-openai==0.3.1
+langchain-openai>=0.3.1
 langchain-core>=0.2.0
 
 python-dotenv>=1.0.0
