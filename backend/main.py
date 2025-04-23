@@ -158,7 +158,7 @@ init_database()
 
 llm = ChatOpenAI(
     model="gpt-4o",
-    openai_api_key="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"
+    openai_api_key=""
     )
 # llm = ChatOpenAI(
 #     base_url='https://api.deepseek.com/v3',
