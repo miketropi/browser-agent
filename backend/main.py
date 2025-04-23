@@ -1,8 +1,20 @@
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
-import webview as pywebview
+import sys
 import os
-from pydantic import SecretStr
+from dotenv import load_dotenv
+load_dotenv()
+
+from fastapi import FastAPI, Request
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import HTMLResponse
+import uvicorn
+import threading
+
+
+# from fastapi.middleware.cors import CORSMiddleware
+import webview as pywebview
+# from pydantic import SecretStr
+# from pydantic.v1 import SecretStr  # For v2 compatibility
+
 from database import Base, engine
 from sqlalchemy.ext.asyncio import AsyncSession
 from models import Task  # Import Task model to ensure it's registered
@@ -13,18 +25,115 @@ pywebview.debug = True
 from log import LogHistory
 log = LogHistory('log.json')
 
+
 from langchain_openai import ChatOpenAI
 from browser_use import Agent, AgentHistoryList, Browser, BrowserConfig
-from dotenv import load_dotenv
+from browser_use.browser.context import BrowserContext, BrowserContextConfig
+from pathlib import Path
+from langchain.prompts import load_prompt
+from playwright.sync_api import sync_playwright
+from playwright.async_api import async_playwright
+
+async def get_chromium():
+    async with async_playwright() as p:
+        return await p.chromium.executable_path
+        return {
+            "chromium": p.chromium.executable_path,
+            "firefox": p.firefox.executable_path,
+            "webkit": p.webkit.executable_path
+        }
+
+__chromium = get_chromium()
+
 import asyncio
-import json
-load_dotenv()
+# import json
+
+if getattr(sys, 'frozen', False):
+    # Running as bundled executable
+    load_dotenv(os.path.join(sys._MEIPASS, '.env'))  # PyInstaller's temp dir
+else:
+    # Normal development mode
+    load_dotenv()
+
+# Set Playwright path for PyInstaller bundles
+# os.environ['PLAYWRIGHT_BROWSERS_PATH'] = os.path.join(os.getcwd(), 'playwright_browsers')
+
+# Get correct base path for templates
+if getattr(sys, 'frozen', False):
+    BASE_DIR = Path(sys._MEIPASS)
+else:
+    BASE_DIR = Path(__file__).parent
+
+SYSTEM_PROMPT_PATH = BASE_DIR / 'templates/system_prompt.json'
+
+# Explicitly set the template path for LangChain
+os.environ["LANGFUSE_PROMPT_PATH"] = str(SYSTEM_PROMPT_PATH)
+
+# Set Playwright path for PyInstaller bundles
+# os.environ["PLAYWRIGHT_BROWSERS_PATH"] = str(BASE_DIR / "playwright_browsers")
+
+# Configure Playwright for PyInstaller
+# if getattr(sys, 'frozen', False):
+#     # PyInstaller temp directory
+#     os.environ["PLAYWRIGHT_BROWSERS_PATH"] = str(Path(sys._MEIPASS) / "playwright_browsers")
+# else:
+#     # Development mode
+#     os.environ["PLAYWRIGHT_BROWSERS_PATH"] = str(Path(__file__).parent / "playwright_browsers")
+
+# Hardcode Chromium executable path for PyInstaller
+CHROMIUM_PATH = (
+    BASE_DIR / "playwright_browsers" / "chromium-1148" / "chrome-mac" / "Chromium.app" / "Contents" / "MacOS" / "Chromium"
+)
+
+# import subprocess
+# def ensure_playwright_installed():
+#     try:
+#         # Check if Playwright is installed
+#         from playwright.sync_api import sync_playwright  # Quick check
+#     except ImportError:
+#         # Install Playwright Python package if missing
+#         subprocess.run([sys.executable, "-m", "pip", "install", "playwright"], check=True)
+    
+#     # Install browsers (Chromium) if missing
+#     subprocess.run([sys.executable, "-m", "playwright", "install", "chromium"], check=True)
+
+# # Call this before initializing Playwright
+# ensure_playwright_installed()
+
+# def configure_playwright():
+#     if getattr(sys, 'frozen', False):
+
+#         # PyInstaller bundle path
+#         base_path = Path(sys._MEIPASS)
+#         browser_dir = base_path / "playwright_browsers"
+        
+#         print(f"[DEBUG] Checking browser_dir: {browser_dir}")  # Add this line
+#         print(f"[DEBUG] Contents:", list(browser_dir.glob("*")))  # Debug listing
+
+#         # Dynamically find Chromium version (chromium-XXXX)
+#         chromium_paths = list(browser_dir.glob("chromium-*/chrome-mac/Chromium.app/Contents/MacOS/Chromium"))
+#         if chromium_paths:
+#             print(f"[DEBUG] Found Chromium at: {chromium_paths[0]}")
+#             return str(chromium_paths[0])
+#         else:
+#             raise FileNotFoundError(f"No Chromium found in {browser_dir}")
+        
+#     else:
+#         # Development mode path
+#         base_path = Path(__file__).parent
+#         browser_dir = base_path / "playwright_browsers"
+#         os.environ["PLAYWRIGHT_BROWSERS_PATH"] = str(browser_dir)
+#         return None  # Let Playwright auto-detect
+
+# CHROMIUM_PATH = configure_playwright()
+# os.environ["PLAYWRIGHT_BROWSERS_PATH"] = CHROMIUM_PATH
+
 
 # Initialize FastAPI app
 app = FastAPI()
 
 # Initialize database
-@app.on_event("startup")
+# @app.on_event("startup")
 async def startup():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
@@ -47,12 +156,18 @@ init_database()
 # if not api_key:
 # 	raise ValueError('DEEPSEEK_API_KEY is not set')
 
-llm = ChatOpenAI(model="gpt-4o")
+llm = ChatOpenAI(
+    model="gpt-4o",
+    openai_api_key="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"
+    )
 # llm = ChatOpenAI(
 #     base_url='https://api.deepseek.com/v3',
 #     model='deepseek-reasoner',
 #     api_key=SecretStr(api_key),
 # )
+
+
+
 
 browser_use_browser = Browser(
     config=BrowserConfig(
@@ -61,6 +176,7 @@ browser_use_browser = Browser(
         # extra_chromium_args=['--profile-directory=Default'],
     )
 )
+
 
 async def run_browser_agent_v2(task):
     """
@@ -79,8 +195,8 @@ async def run_browser_agent_v2(task):
 
         # Create the task message
         message = f"""
-1. Access Google:
-    * Open your browser and navigate to https://google.com.
+1. Access Google: 
+    * Open your browser and navigate to https://google.com
 2. Search for the Keyword:
     * In the Google search bar, type "{search_keyword}" and press Enter.
 3. Locate the Specific Domain in Results:
@@ -88,40 +204,106 @@ async def run_browser_agent_v2(task):
     * If not found on the current page: Scroll to end page click the "Next" button (or next page numbers) at the bottom of Google to check subsequent pages.
 4. Visit the Target Website:
     * Once you find a result matching the domain, click the link to navigate to {target_website}.
-"""
+""" 
+
+#         message = f"""
+# 1. Access Google: 
+#     * navigate to https://google.com
+# 2. Search for the Keyword: 
+#     * type {search_keyword} and press Enter or click the search button
+# 4. if display google captcha, please complete it else continue to step 5:
+#     * document to complete the captcha 
+#     - "Select Images: Click on the all images that match the displayed request. For example, if the request is to select all images with cars, you will click on all images with cars.
+#     - Confirm: After you have finished selecting, click the "Verify" button to complete the verification process.
+#     - Continue Access: If the verification is successful, you will be allowed to continue accessing the website."
+# 5. return title of first result
+#         """
+
+        print(f"_____MESSAGE: {message}")
         
-        llm2 = ChatOpenAI(model="gpt-4o-mini")
+        llm2 = ChatOpenAI(
+            model="gpt-4o-mini",
+            openai_api_key="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"
+            )
+
+        print(f"_____LLM2: 1")
+        # user_data_dir = '/Users/mike/Library/Application Support/Google/Chrome/Guest Profile'
+        # __browser = await __chromium.launch_persistent_context(
+        #     user_data_dir=user_data_dir,
+        #     headless=False,
+        #     args=["--remote-debugging-port=9222"]
+        # )
+        playwright = await async_playwright().start()
+        main_browser = await playwright.chromium.launch(
+            #executable_path=CHROMIUM_PATH,
+            executable_path='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+            headless=False,
+            args=[
+                "--remote-debugging-port=9222",
+                "--disable-blink-features=AutomationControlled",
+                "--start-maximized"
+                ]
+        )
+        cdp_browser = await playwright.chromium.connect_over_cdp(
+            "http://localhost:9222"
+        )
+        cdp_url = f"http://localhost:9222"
+
+        # Create a new context or attach to the default one
+        context = cdp_browser.contexts[0] if cdp_browser.contexts else cdp_browser.new_context()
+        context.set_extra_http_headers({
+            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        })
+
+
         browser_use_browser2 = Browser(
             config=BrowserConfig(
                 headless=False,
+                # chrome_instance_path=__chromium_path,  # Only set in bundled app
+                cdp_url=cdp_url,
                 # chrome_instance_path='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',  # macOS path
-                # extra_chromium_args=['--profile-directory=Default'],
+                # extra_chromium_args=[
+                #     '--profile-directory="Guest Profile"',
+                #     ],
             )
         )
 
-        agent = Agent(
-            task=message,
-            llm=llm2,
-            browser=browser_use_browser2,
-            use_vision=False,
-            max_failures=2,
-            max_actions_per_step=1
-        )
+        print(f"_____BROWSER_USE_BROWSER2: 1")
+
+        try:
+            # Load the system prompt template
+            # system_prompt = load_prompt(str(SYSTEM_PROMPT_PATH))
+            agent = Agent(
+                task=message,
+                llm=llm2,
+                browser=browser_use_browser2, 
+                # browser_context=context,
+                use_vision=False,
+                max_failures=2,
+                max_actions_per_step=1
+            )
+
+            print(f"_____AGENT: 1")
+                
+            # Execute the agent
+            history: AgentHistoryList = await agent.run()
+            result = history.final_result()
+
+            # Log the result
+            log.add_entry(
+                action='run_browser_agent',
+                details={
+                    'message': message,
+                    'result': result 
+                }
+            )
             
-        # Execute the agent
-        history: AgentHistoryList = await agent.run()
-        result = history.final_result()
+            await main_browser.close()
+            await cdp_browser.close()
 
-        # Log the result
-        log.add_entry(
-            action='run_browser_agent',
-            details={
-                'message': message,
-                'result': result 
-            }
-        )
-
-        return result  
+            return result  
+        finally:
+            print(f"done")
       
     except Exception as e:
         error_message = str(e)
@@ -408,13 +590,44 @@ class Api:
         finally:
             loop.close()
 
+
+app.mount("/static", StaticFiles(directory=BASE_DIR / "static"), name="static")
+app.mount("/", StaticFiles(directory=BASE_DIR / "static"), name="root")
+
+# Optional: Serve index.html for any unknown routes
+@app.get("/{catch_all:path}", include_in_schema=False)
+async def catch_all(request: Request):
+    # get path index file from 'static/index.html'
+    return {"html": open(f"{BASE_DIR}/static/index.html").read()} 
+
+def run_fastapi_server(): 
+    uvicorn.run(app, host="0.0.0.0", port=8000)
+
+# Run FastAPI server in a separate thread
+server_thread = threading.Thread(target=run_fastapi_server)
+server_thread.daemon = True  # Allow the program to exit even if the thread is still running
+server_thread.start()
+
 api = Api()
+
+def is_dev_mode():
+    """Check if running in development mode"""
+    return os.getenv('DEV_MODE') == '1' or not getattr(sys, 'frozen', False)
+
+def get_frontend_url():
+    """Get appropriate frontend URL based on mode"""
+    # return 'http://localhost:5173'
+    return 'http://localhost:5173' if is_dev_mode() else 'http://localhost:8000/index.html'
+
 
 def create_window():
     # Create a window with exposed JavaScript API
+    import time
+    time.sleep(1)  # Wait for 1 second
+
     window = pywebview.create_window(
         'Amebae SEO',
-        'http://localhost:5173',
+        get_frontend_url(),
         js_api=api,
         width=960,          # Initial width
         height=600,         # Initial height

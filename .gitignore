@@ -1,4 +1,8 @@
 backend/.env
 backend/.venv
 backend/__pycache__
+backend/static
+backend/build
+backend/dist
+backend/playwright_browsers
 log.json

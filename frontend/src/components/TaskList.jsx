@@ -275,11 +275,17 @@ export default function TaskList({ tasksData, onTaskUpdate }) {
     // loop and handle async for each item doing step by step task item, and wait for all tasks to complete, and then set isRunningTasks to false, only for tasks status is pending
     for (const task of pendingTasks) {
       // update task status to doing
-      setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: 'doing' } : t))
+      // setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: 'doing' } : {...t}))
+      
+      // get current task
+      let __tasks = [...tasks]
+      let currentTask = __tasks.findIndex(t => t.id === task.id)
+      __tasks[currentTask].status = 'doing'
+      setTasks(__tasks)
 
       console.log('___Task status updated to doing:', task)
       const result = await browserAgent(task)
-      await delay(2000)
+      await delay(1000)
 
       console.log('___Browser agent result:', result)
 
@@ -290,7 +296,10 @@ export default function TaskList({ tasksData, onTaskUpdate }) {
       }])
 
       // update task status to completed
-      setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: 'completed' } : t))
+      let __tasks2 = [...tasks] 
+      let currentTask2 = __tasks2.findIndex(t => t.id === task.id)
+      __tasks2[currentTask2].status = 'completed'
+      setTasks(__tasks2)
     }
 
     setIsRunningTasks(false)
@@ -357,7 +366,7 @@ export default function TaskList({ tasksData, onTaskUpdate }) {
                 >
                   {tasks.map((task, index) => (
                     <SortableItem 
-                      key={task.id} 
+                      key={`task__id_${task.id}`} 
                       task={task} 
                       numIndex={index + 1}
                       onEdit={handleEdit} 
@@ -397,7 +406,7 @@ export default function TaskList({ tasksData, onTaskUpdate }) {
             {browserAgentResults.map(result => {
               const task = tasks.find(t => t.id === result.taskId)
               return <>
-                <div key={result.taskId} className="p-4">
+                <div key={`result__id_${result.taskId}`} className="p-4">
                   <h3 className="text-md font-medium text-gray-700 dark:text-gray-300 mb-2 space-mono-regular">Task {task.target_website} - "{task.search_keyword}"</h3>
                   <div className="bg-gray-50 dark:bg-gray-900 p-3 rounded-md overflow-auto max-h-96" 
                       dangerouslySetInnerHTML={{ __html: result.result }} />
