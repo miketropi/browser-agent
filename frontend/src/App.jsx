@@ -28,8 +28,9 @@ function App() {
         
         // Check if we're running in WebView
         if (window.pywebview && window.pywebview.api) {
-          console.log('pywebview detected, initializing...')
-          
+          console.log('pywebview detected, initializing...') 
+          console.log('pywebview.api:', window.pywebview)
+
           // Initialize the API
           await window.pywebview.api.init()
           

@@ -44,8 +44,7 @@ hiddenimports += [
     'pydantic.color',
     'pydantic.deprecated.decorator',
     'pydantic.deprecated.datetime',
-    'pydantic.deprecated.json'
-
+    'pydantic.deprecated.json',
     'langchain_openai',
     'importlib.resources',
     'browser_use',
@@ -78,10 +77,11 @@ a = Analysis(
     datas=(
         # get_playwright_data() 
         [('static', './static')]
-        # + [('.venv/lib/python3.11/site-packages/browser_use/agent/system_prompt.md', 'browser_use/agent')]
-        + [('.venv/lib/python3.11/site-packages/browser_use', 'browser_use')]
+        # + [(r'C:\Users\Hi\AppData\Local\Programs\Python\Python312\Lib\site-packages\browser_use/agent/system_prompt.md', 'browser_use/agent')]
+        + [(r'C:\Users\Hi\AppData\Local\Programs\Python\Python312\Lib\site-packages\browser_use', 'browser_use')]
+        # Make sure browser_use is properly included
+        + collect_data_files('browser_use')
         + [('templates/system_prompt.json', 'templates')]
-        + [('playwright_browsers', 'playwright_browsers')]
         + [('.env', '.')] 
         + playwright_browsers
         # + collect_data_files('langchain_core')

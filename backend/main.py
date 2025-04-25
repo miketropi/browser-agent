@@ -1,7 +1,14 @@
 import sys
 import os
+import io
 from dotenv import load_dotenv
 load_dotenv()
+
+os.environ["PYTHONIOENCODING"] = "utf-8"
+# if sys.stdout is not None:
+#     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
+# if sys.stderr is not None:
+#     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
@@ -11,7 +18,7 @@ import threading
 
 
 # from fastapi.middleware.cors import CORSMiddleware
-import webview as pywebview
+import webview
 # from pydantic import SecretStr
 # from pydantic.v1 import SecretStr  # For v2 compatibility
 
@@ -20,7 +27,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from models import Task  # Import Task model to ensure it's registered
 from task_db_handle import TaskDBHandler
 
-pywebview.debug = True
+webview.debug = True
 
 from log import LogHistory
 log = LogHistory('log.json')
@@ -46,7 +53,18 @@ async def get_chromium():
 __chromium = get_chromium()
 
 import asyncio
-# import json
+import json
+
+def sanitize_unicode(obj):
+    """Recursively sanitize Unicode characters in dictionaries, lists, and strings"""
+    if isinstance(obj, dict):
+        return {k: sanitize_unicode(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [sanitize_unicode(item) for item in obj]
+    elif isinstance(obj, str):
+        return obj.encode('ascii', 'replace').decode('ascii')
+    else:
+        return obj
 
 if getattr(sys, 'frozen', False):
     # Running as bundled executable
@@ -158,7 +176,7 @@ init_database()
 
 llm = ChatOpenAI(
     model="gpt-4o",
-    openai_api_key=""
+    openai_api_key="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"
     )
 # llm = ChatOpenAI(
 #     base_url='https://api.deepseek.com/v3',
@@ -223,7 +241,7 @@ async def run_browser_agent_v2(task):
         
         llm2 = ChatOpenAI(
             model="gpt-4o-mini",
-            openai_api_key="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"
+            openai_api_key=""
             )
 
         print(f"_____LLM2: 1")
@@ -236,14 +254,14 @@ async def run_browser_agent_v2(task):
         playwright = await async_playwright().start()
         main_browser = await playwright.chromium.launch(
             #executable_path=CHROMIUM_PATH,
-            executable_path='/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
+            executable_path='C:\Program Files\Google\Chrome\Application\chrome.exe',
             headless=False,
             args=[
                 "--remote-debugging-port=9222",
                 "--disable-blink-features=AutomationControlled",
                 "--start-maximized"
                 ]
-        )
+        )  
         cdp_browser = await playwright.chromium.connect_over_cdp(
             "http://localhost:9222"
         )
@@ -252,7 +270,7 @@ async def run_browser_agent_v2(task):
         # Create a new context or attach to the default one
         context = cdp_browser.contexts[0] if cdp_browser.contexts else cdp_browser.new_context()
         context.set_extra_http_headers({
-            "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            # "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
         })
 
 
@@ -273,6 +291,7 @@ async def run_browser_agent_v2(task):
         try:
             # Load the system prompt template
             # system_prompt = load_prompt(str(SYSTEM_PROMPT_PATH))
+            os.environ["PYTHONIOENCODING"] = "utf-8"
             agent = Agent(
                 task=message,
                 llm=llm2,
@@ -280,7 +299,8 @@ async def run_browser_agent_v2(task):
                 # browser_context=context,
                 use_vision=False,
                 max_failures=2,
-                max_actions_per_step=1
+                max_actions_per_step=1,
+                save_conversation_path="logs"
             )
 
             print(f"_____AGENT: 1")
@@ -289,14 +309,17 @@ async def run_browser_agent_v2(task):
             history: AgentHistoryList = await agent.run()
             result = history.final_result()
 
-            # Log the result
+            # Log the result - handle Unicode characters by replacing them with ASCII equivalents
             log.add_entry(
                 action='run_browser_agent',
                 details={
-                    'message': message,
-                    'result': result 
+                    'message': message.encode('ascii', 'replace').decode('ascii') if isinstance(message, str) else message,
+                    'result': json.dumps(result, ensure_ascii=True) if isinstance(result, dict) else str(result).encode('ascii', 'replace').decode('ascii')
                 }
             )
+            
+            # Ensure result is properly encoded for Windows console output
+            result = sanitize_unicode(result)
             
             await main_browser.close()
             await cdp_browser.close()
@@ -306,195 +329,109 @@ async def run_browser_agent_v2(task):
             print(f"done")
       
     except Exception as e:
-        error_message = str(e)
+        # Handle Unicode encoding errors by replacing problematic characters
+        error_message = str(e).encode('ascii', 'replace').decode('ascii')
         log.add_entry(
             action='run_browser_agent',
             details={
-                'message': message,
+                'message': message.encode('ascii', 'replace').decode('ascii') if isinstance(message, str) else message,
                 'error': error_message  
             }
         )
-        return {
+        # Ensure all string values in the response are properly encoded
+        response = sanitize_unicode({
             "status": "error",
             "error": error_message
-        }
+        })
+        # Print debug information
+        print(f"Error in browser agent: {error_message}")
+        return response
 
 
+# Define API class to handle all API functions
 class Api:
     def __init__(self):
-        self.window = None
-        self.db = None
-
-    def set_window(self, window):
-        self.window = window
-
+        # Store window reference
+        self.window_instance = None
+    
     def health_check(self):
-        """Health check endpoint"""
         return {"status": "healthy"}
-
+    
     def get_message(self):
-        """Get a message from the backend"""
         return "Hello from Python backend!"
-
+    
     def init(self):
-        """Initialize the API"""
         return True
     
+    def set_window(self, window):
+        self.window_instance = window
+    
     def get_tasks(self, status=None, ordering=None):
-        """Get tasks from the database
-        
-        Args:
-            status (str, optional): Filter tasks by status (pending, running, completed, failed)
-            ordering (int, optional): Filter tasks by ordering value
-            
-        Returns:
-            dict: Response containing tasks information or error
-        """
         try:
-            # Create event loop if not exists
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-            
-            # Create database session
-            async_session = AsyncSession(engine)
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        async_session = AsyncSession(engine)
+        try:
             handler = TaskDBHandler(async_session)
-            
-            # Get tasks based on parameters
             if status:
                 tasks = loop.run_until_complete(handler.get_tasks_by_status(status))
             else:
                 tasks = loop.run_until_complete(handler.get_all_tasks())
-            
-            # Filter by ordering if specified
             if ordering is not None:
                 tasks = [task for task in tasks if task.ordering == ordering]
-            
-            # Format response
-            return {
-                "status": "success",
-                "tasks": [{
-                    "id": task.id,
-                    "target_website": task.target_website,
-                    "search_keyword": task.search_keyword,
-                    "loop": task.loop,
-                    "status": task.status,
-                    "ordering": task.ordering,
-                    "date_add": task.date_add.isoformat()
-                } for task in tasks]
-            }
-            
+            return {"status": "success","tasks": [{"id": task.id,"target_website": task.target_website,"search_keyword": task.search_keyword,"loop": task.loop,"status": task.status,"ordering": task.ordering,"date_add": task.date_add.isoformat()} for task in tasks]}
         except Exception as e:
             error_message = str(e)
             log.add_entry(
                 action='get_tasks',
-                details={
-                    'error': error_message,
-                    'status': status,
-                    'ordering': ordering
-                }
+                details={'error': error_message, 'status': status, 'ordering': ordering}
             )
-            return {
-                "status": "error",
-                "error": error_message
-            }
+            return {"status": "error", "error": error_message}
         finally:
             if async_session:
                 loop.run_until_complete(async_session.close())
-
+    
     def add_task(self, task):
-        """Add a task to the database"""
+        print(f"_____TASK: {task}")
         try:
-            print(f"_____TASK: {task}")
-
-            # Create event loop if not exists
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-        
-            # Create database session
-            async_session = AsyncSession(engine)
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        async_session = AsyncSession(engine)
+        try:
             handler = TaskDBHandler(async_session)
-
-            # Add task to the database
-            # loop.run_until_complete(handler.create_task(task))
-            # create task to db
-            task = loop.run_until_complete(handler.create_task(
-                target_website=task.get('target_website'),
-                search_keyword=task.get('search_keyword'),
-                loop=task.get('loop')
-            ))
-
-            return {
-                "status": "success",
-                "task": {
-                    "id": task.id,
-                    "target_website": task.target_website,
-                    "search_keyword": task.search_keyword,
-                    "loop": task.loop,
-                    "status": task.status,
-                    "ordering": task.ordering,
-                    "date_add": task.date_add.isoformat()
-                }
-            }
+            task = loop.run_until_complete(handler.create_task(target_website=task.get('target_website'),search_keyword=task.get('search_keyword'),loop=task.get('loop')))
+            return {"status": "success","task": {"id": task.id,"target_website": task.target_website,"search_keyword": task.search_keyword,"loop": task.loop,"status": task.status,"ordering": task.ordering,"date_add": task.date_add.isoformat()}}
         except Exception as e:
             error_message = str(e)
-            log.add_entry(
-                action='add_task',
-                details={
-                    'error': error_message,
-                    'task': task
-                }
-            )
-            return {
-                "status": "error",
-                "error": error_message
-            }
+            log.add_entry(action='add_task',details={'error': error_message,'task': task})
+            return {"status": "error","error": error_message}
         finally:
             if async_session:
                 loop.run_until_complete(async_session.close())
-
+    
     def delete_task(self, task_id):
-        """Delete a task from the database"""
         try:
-            # Create event loop if not exists
-            try:
-                loop = asyncio.get_event_loop()
-            except RuntimeError:
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-            
-            # Create database session
-            async_session = AsyncSession(engine)
-            handler = TaskDBHandler(async_session)  
-
-            # Delete task from the database
+            loop = asyncio.get_event_loop()
+        except RuntimeError:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+        async_session = AsyncSession(engine)
+        try:
+            handler = TaskDBHandler(async_session)
             loop.run_until_complete(handler.delete_task(task_id))
-
-            return {
-                "status": "success"
-            }
+            return {"status": "success"}
         except Exception as e:
             error_message = str(e)
-            log.add_entry(
-                action='delete_task',
-                details={
-                    'error': error_message,
-                    'task_id': task_id
-                }
-            )
-            return {
-                "status": "error",
-                "error": error_message
-            }
+            log.add_entry(action='delete_task',details={'error': error_message,'task_id': task_id})
+            return {"status": "error","error": error_message}
         finally:
             if async_session:
                 loop.run_until_complete(async_session.close())
-
+    
     def update_task(self, task):
         """Update a task in the database"""
         try:
@@ -555,6 +492,7 @@ class Api:
             asyncio.set_event_loop(loop)
         
         try:
+            # Pass the task to the async function
             return loop.run_until_complete(run_browser_agent_v2(task))
         finally:
             if loop.is_running():
@@ -579,11 +517,15 @@ class Api:
                 
             history: AgentHistoryList = loop.run_until_complete(agent.run())
             result = history.final_result()
+            
+            # Handle Unicode characters in the result
+            result = sanitize_unicode(result)
+                
             log.add_entry(
                 action='run_browser_agent',
                 details={
-                    'message': message,
-                    'result': result 
+                    'message': message.encode('ascii', 'replace').decode('ascii') if isinstance(message, str) else message,
+                    'result': json.dumps(result, ensure_ascii=True) if isinstance(result, dict) else str(result).encode('ascii', 'replace').decode('ascii')
                 }
             )
             return result
@@ -608,8 +550,6 @@ server_thread = threading.Thread(target=run_fastapi_server)
 server_thread.daemon = True  # Allow the program to exit even if the thread is still running
 server_thread.start()
 
-api = Api()
-
 def is_dev_mode():
     """Check if running in development mode"""
     return os.getenv('DEV_MODE') == '1' or not getattr(sys, 'frozen', False)
@@ -625,7 +565,12 @@ def create_window():
     import time
     time.sleep(1)  # Wait for 1 second
 
-    window = pywebview.create_window(
+    # Create API instance with all the methods
+    api = Api()
+
+    print(f"_____API_INSTANCE: {api}") 
+    
+    window = webview.create_window(
         'Amebae SEO',
         get_frontend_url(),
         js_api=api,
@@ -634,10 +579,10 @@ def create_window():
         min_size=(800, 600),
         text_select=True
     )
-    api.set_window(window)
+    
     
     # Start the application with debug enabled
-    pywebview.start(debug=True)
+    webview.start(debug=True)
 
 if __name__ == "__main__":
-    create_window()  
+    create_window()
