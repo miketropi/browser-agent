@@ -176,7 +176,7 @@ init_database()
 
 llm = ChatOpenAI(
     model="gpt-4o",
-    openai_api_key="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"
+    openai_api_key="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"
     )
 # llm = ChatOpenAI(
 #     base_url='https://api.deepseek.com/v3',
@@ -252,9 +252,9 @@ async def run_browser_agent_v2(task):
         #     args=["--remote-debugging-port=9222"]
         # )
         playwright = await async_playwright().start()
-        main_browser = await playwright.chromium.launch(
+        main_browser = await playwright.chromium.launch( 
             #executable_path=CHROMIUM_PATH,
-            executable_path='C:\Program Files\Google\Chrome\Application\chrome.exe',
+            executable_path="C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
             headless=False,
             args=[
                 "--remote-debugging-port=9222",
@@ -292,15 +292,23 @@ async def run_browser_agent_v2(task):
             # Load the system prompt template
             # system_prompt = load_prompt(str(SYSTEM_PROMPT_PATH))
             os.environ["PYTHONIOENCODING"] = "utf-8"
+            browser_2 = Browser(
+                config=BrowserConfig(
+                    chrome_instance_path='C:\Program Files\Google\Chrome\Application\chrome.exe',
+                    
+                ) 
+            )
+
             agent = Agent(
                 task=message,
                 llm=llm2,
                 browser=browser_use_browser2, 
                 # browser_context=context,
+                #browser=browser_2,
                 use_vision=False,
                 max_failures=2,
                 max_actions_per_step=1,
-                save_conversation_path="logs"
+                # save_conversation_path="logs"
             )
 
             print(f"_____AGENT: 1")

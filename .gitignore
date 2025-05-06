@@ -5,4 +5,5 @@ backend/static
 backend/build
 backend/dist
 backend/playwright_browsers
+backend/sql_app.db
 log.json
