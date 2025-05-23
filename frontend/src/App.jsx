@@ -5,6 +5,7 @@ import DashboardTab from './components/DashboardTab'
 import { LayoutDashboard, Settings, NotebookText } from 'lucide-react';
 import Welcome from './components/Welcome'; 
 import TaskBoard from './components/TaskBoard';
+import SettingsTab from './components/SettingsTab';
 function App() {
   const [count, setCount] = useState(0)
   const [message, setMessage] = useState('Waiting for backend...')
@@ -94,7 +95,7 @@ function App() {
       id: 'settings',
       label: 'Settings',
       icon: <Settings size={20} />,
-      content: <div>Settings</div>
+      content: <SettingsTab />
     }
   ]
 

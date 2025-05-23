@@ -12,3 +12,12 @@ class Task(Base):
     status = Column(String, default="pending")  # pending, running, completed, failed
     ordering = Column(Integer, default=0)
     date_add = Column(DateTime(timezone=True), server_default=func.now()) 
+
+# settings table class
+class Settings(Base):
+    __tablename__ = "settings"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False) 
+    value = Column(String, nullable=False)
+    date_add = Column(DateTime(timezone=True), server_default=func.now())   

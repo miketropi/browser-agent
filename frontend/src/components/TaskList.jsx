@@ -38,7 +38,7 @@ const SortableItem = ({ numIndex, task, onEdit, onDelete }) => {
           {task.status}
         </span>
       </td>
-      {/* <td className="p-3">{task.loop}</td> */}
+      <td className="p-3">{task.loop}</td>
       <td className="p-3">
         <div className="flex space-x-2">
           <button onClick={() => onEdit(task)} className="p-1 text-blue-600 hover:text-blue-800">
@@ -112,7 +112,7 @@ const TaskForm = ({ task, onSave, onCancel }) => {
               <option value="failed">Failed</option>
             </select>
           </div>
-          {/* <div className="mb-4">
+          <div className="mb-4">
             <label className="block text-sm font-medium mb-1">Loop</label>
             <input
               type="number"
@@ -123,7 +123,7 @@ const TaskForm = ({ task, onSave, onCancel }) => {
               min="1"
               required
             />
-          </div> */}
+          </div>
           <div className="flex justify-end space-x-2">
             <button
               type="button"
@@ -151,7 +151,26 @@ export default function TaskList({ tasksData, onTaskUpdate }) {
   const [isAddingTask, setIsAddingTask] = useState(false);
   const [isRunningTasks, setIsRunningTasks] = useState(false);
   // result of browser agent
-  const [browserAgentResults, setBrowserAgentResults] = useState([])
+  const [browserAgentResults, setBrowserAgentResults] = useState([]);
+  const [taskListQueue, setTaskListQueue] = useState([]);
+
+  const buildTaskListQueue = (tasks) => {
+    const queue = []
+    for (let task of tasks) {
+      for (let i = 0; i < task.loop; i++) {
+        let r = (Math.random() + 1).toString(36).substring(7)
+        task.__key = `${task.id}_${r}`; 
+        task.result = '';
+        queue.push({...task})
+      }
+    }
+    console.log('___Task list queue:', queue)
+    setTaskListQueue(queue)
+  }
+
+  useEffect(() => {
+    buildTaskListQueue([...tasks])
+  }, [tasks])
 
   useEffect(() => {
     onTaskUpdate(tasks);
@@ -257,13 +276,13 @@ export default function TaskList({ tasksData, onTaskUpdate }) {
   // make a function delay 2s
   const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
   const handleRunTasks = async () => {
-    if (tasks.length === 0) {
+    if (taskListQueue.length === 0) {
       alert('No tasks to run. Please add tasks first.');
       return;
     }
     
     // filter tasks with status pending
-    const pendingTasks = tasks.filter(task => task.status === 'pending')
+    const pendingTasks = [...taskListQueue].filter(task => task.status === 'pending')
 
     if (pendingTasks.length === 0) {
       alert('No tasks to run. Please add tasks first.');
@@ -271,17 +290,17 @@ export default function TaskList({ tasksData, onTaskUpdate }) {
     }
 
     setIsRunningTasks(true)
-
+    // return;
     // loop and handle async for each item doing step by step task item, and wait for all tasks to complete, and then set isRunningTasks to false, only for tasks status is pending
     for (const task of pendingTasks) {
       // update task status to doing
       // setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: 'doing' } : {...t}))
       
       // get current task
-      let __tasks = [...tasks]
-      let currentTask = __tasks.findIndex(t => t.id === task.id)
+      let __tasks = [...taskListQueue]
+      let currentTask = taskListQueue.findIndex(t => t.__key === task.__key)
       __tasks[currentTask].status = 'doing'
-      setTasks(__tasks)
+      setTaskListQueue(__tasks)
 
       console.log('___Task status updated to doing:', task)
       const result = await browserAgent(task)
@@ -290,133 +309,219 @@ export default function TaskList({ tasksData, onTaskUpdate }) {
       console.log('___Browser agent result:', result)
 
       // set browser agent results
-      setBrowserAgentResults(prev => [...prev, {
-        taskId: task.id,
-        result: result
-      }])
+      // setBrowserAgentResults(prev => [...prev, {
+      //   taskId: task.id,
+      //   result: result
+      // }])
 
       // update task status to completed
-      let __tasks2 = [...tasks] 
-      let currentTask2 = __tasks2.findIndex(t => t.id === task.id)
+      let __tasks2 = [...taskListQueue] 
+      let currentTask2 = __tasks2.findIndex(t => t.__key === task.__key)
       __tasks2[currentTask2].status = 'completed'
-      setTasks(__tasks2)
+
+      // add result to task
+      __tasks2[currentTask2].result = result
+
+      setTaskListQueue(__tasks2)
     }
 
-    setIsRunningTasks(false)
+    // setIsRunningTasks(false)
   };
 
   return (
     <>
-      <div className="w-full bg-white dark:bg-gray-900 shadow-md rounded-lg overflow-hidden border">
-        <div className="p-4 flex justify-between items-center border-b">
-          <h2 className="text-lg font-semibold">Task Manager</h2>
-          <div className="flex space-x-2">
-            <button 
-              onClick={() => setIsAddingTask(true)}
-              className="flex items-center px-3 py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-            >
-              <Plus size={16} className="mr-1" />
-              Add Task
-            </button>
+      {/* { JSON.stringify(taskListQueue) } */}
+      {
+        isRunningTasks && (
 
-            <button 
-              onClick={() => {
-                if (tasks.length === 0) {
-                  alert('No tasks to run. Please add tasks first.');
-                  return;
-                }
-                if (window.confirm('Are you sure you want to run tasks?')) {
-                  handleRunTasks()
-                }
-              }}
-              className="flex items-center px-3 py-1.5 bg-green-600 text-white rounded-md hover:bg-green-700"
-            >
-              {isRunningTasks ? (
-                <Loader2 size={16} className="mr-1 animate-spin" />
-              ) : (
-                <Play size={16} className="mr-1" />
-              )}
-              Run Tasks
-            </button>
-          </div>
-        </div>
-        
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
-            <thead className="bg-gray-50 dark:bg-gray-800">
-              <tr>
-                <th className="p-3 w-10"></th>
-                <th className="p-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order</th>
-                <th className="p-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Target Website</th>
-                <th className="p-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Search Keyword</th>
-                <th className="p-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                {/* <th className="p-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Loop</th> */}
-                <th className="p-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800">
-              <DndContext 
-                sensors={sensors}
-                collisionDetection={closestCenter}
-                onDragEnd={handleDragEnd}
-              >
-                <SortableContext 
-                  items={tasks.map(task => task.id)}
-                  strategy={verticalListSortingStrategy}
-                >
-                  {tasks.map((task, index) => (
-                    <SortableItem 
-                      key={`task__id_${task.id}`} 
-                      task={task} 
-                      numIndex={index + 1}
-                      onEdit={handleEdit} 
-                      onDelete={handleDelete} 
-                    />
-                  ))}
-                </SortableContext>
-              </DndContext>
-            </tbody>
-          </table>
-        </div>
-        
-        {tasks.length === 0 && (
-          <div className="p-8 text-center text-gray-500">
-            No tasks found. Click "Add Task" to create one.
-          </div>
-        )}
-        
-        {(editingTask || isAddingTask) && (
-          <TaskForm 
-            task={editingTask} 
-            onSave={handleSave} 
-            onCancel={() => {
-              setEditingTask(null);
-              setIsAddingTask(false);
-            }} 
-          />
-        )}
-      </div>
-
-      {browserAgentResults.length > 0 && (
-        <div className="mt-6 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
-          <div className="p-4 border-b border-gray-200 dark:border-gray-700">
-            <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200">Results</h2>
-          </div>
-          <div className="divide-y divide-gray-200 dark:divide-gray-700">
-            {browserAgentResults.map(result => {
-              const task = tasks.find(t => t.id === result.taskId)
-              return <>
-                <div key={`result__id_${result.taskId}`} className="p-4">
-                  <h3 className="text-md font-medium text-gray-700 dark:text-gray-300 mb-2 space-mono-regular">Task {task.target_website} - "{task.search_keyword}"</h3>
-                  <div className="bg-gray-50 dark:bg-gray-900 p-3 rounded-md overflow-auto max-h-96" 
-                      dangerouslySetInnerHTML={{ __html: result.result }} />
+          <div>
+            <div>
+              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 mb-6">
+                <div className="flex flex-col space-y-4">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                      Task List Queue
+                    </h2>
+                    <div className="flex items-center space-x-4">
+                      <div className="flex items-center space-x-2 px-3 py-1.5 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                        <span className="text-sm font-medium text-gray-600 dark:text-gray-300">
+                          Total Tasks
+                        </span>
+                        <span className="text-sm font-semibold text-gray-900 dark:text-white">
+                          {taskListQueue.length}
+                        </span>
+                      </div>
+                      <div className="flex items-center space-x-2 px-3 py-1.5 bg-green-50 dark:bg-green-900/30 rounded-lg">
+                        <span className="text-sm font-medium text-green-600 dark:text-green-400">
+                          Completed
+                        </span>
+                        <span className="text-sm font-semibold text-green-700 dark:text-green-300">
+                          {taskListQueue.filter(task => task.status === 'completed').length}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </>
-            })}
+              </div>
+            </div>
+            {
+              taskListQueue.map(task => (
+                <div key={`task__key_${task.__key}`} className="bg-white dark:bg-gray-800 rounded-lg p-4 mb-4 transition-all duration-200 hover:shadow-md border border-gray-200 dark:border-gray-700">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center space-x-3">
+                      <div className={`w-2 h-2 rounded-full ${
+                        task.status === 'completed' ? 'bg-green-500' :
+                        task.status === 'doing' ? 'bg-yellow-500' :
+                        'bg-blue-500'
+                      }`}></div>
+                      <h3 className="text-sm font-medium text-gray-900 dark:text-gray-100">
+                        {task.target_website}
+                      </h3>
+                    </div>
+                    <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                      task.status === 'completed' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' :
+                      task.status === 'doing' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
+                      'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-300'
+                    }`}>
+                      {task.status}
+                    </span>
+                  </div>
+                  
+                  <div className="mb-3">
+                    <p className="text-sm text-gray-600 dark:text-gray-400">
+                      Search: <span className="font-medium text-gray-900 dark:text-gray-100">{task.search_keyword}</span>
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-500 mt-1">
+                      Added: {new Date(task.date_add).toLocaleDateString()}
+                    </p>
+                  </div>
+
+                  {task.result && (
+                    <div className="bg-gray-50 dark:bg-gray-900 p-3 rounded-md overflow-auto max-h-96 text-sm border border-gray-200 dark:border-gray-700" 
+                         dangerouslySetInnerHTML={{ __html: task.result }} />
+                  )}
+                </div>
+              ))
+            }
           </div>
-        </div>
-      )}
+        )
+      }
+      {
+        !isRunningTasks && (
+          <>
+            <div className="w-full bg-white dark:bg-gray-900 shadow-md rounded-lg overflow-hidden border">
+              <div className="p-4 flex justify-between items-center border-b">
+                <h2 className="text-lg font-semibold">Task Manager</h2>
+                <div className="flex space-x-2">
+                  <button 
+                    onClick={() => setIsAddingTask(true)}
+                    className="flex items-center px-3 py-1.5 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+                  >
+                    <Plus size={16} className="mr-1" />
+                    Add Task
+                  </button>
+
+                  <button 
+                    onClick={() => {
+                      if (taskListQueue.length === 0) {
+                        alert('No tasks to run. Please add tasks first.');
+                        return;
+                      }
+                      if (window.confirm('Are you sure you want to run tasks?')) {
+                        handleRunTasks()
+                      }
+                    }}
+                    className="flex items-center px-3 py-1.5 bg-green-600 text-white rounded-md hover:bg-green-700"
+                  >
+                    {isRunningTasks ? (
+                      <Loader2 size={16} className="mr-1 animate-spin" />
+                    ) : (
+                      <Play size={16} className="mr-1" />
+                    )}
+                    Run Tasks
+                  </button>
+                </div>
+              </div>
+              
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                  <thead className="bg-gray-50 dark:bg-gray-800">
+                    <tr>
+                      <th className="p-3 w-10"></th>
+                      <th className="p-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Order</th>
+                      <th className="p-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Target Website</th>
+                      <th className="p-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Search Keyword</th>
+                      <th className="p-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                      <th className="p-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Loop</th>
+                      <th className="p-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white dark:bg-gray-900 divide-y divide-gray-200 dark:divide-gray-800">
+                    <DndContext 
+                      sensors={sensors}
+                      collisionDetection={closestCenter}
+                      onDragEnd={handleDragEnd}
+                    >
+                      <SortableContext 
+                        items={tasks.map(task => task.id)}
+                        strategy={verticalListSortingStrategy}
+                      >
+                        {tasks.map((task, index) => (
+                          <SortableItem 
+                            key={`task__id_${task.id}`} 
+                            task={task} 
+                            numIndex={index + 1}
+                            onEdit={handleEdit} 
+                            onDelete={handleDelete} 
+                          />
+                        ))}
+                      </SortableContext>
+                    </DndContext>
+                  </tbody>
+                </table>
+              </div>
+              
+              {tasks.length === 0 && (
+                <div className="p-8 text-center text-gray-500">
+                  No tasks found. Click "Add Task" to create one.
+                </div>
+              )}
+              
+              {(editingTask || isAddingTask) && (
+                <TaskForm 
+                  task={editingTask} 
+                  onSave={handleSave} 
+                  onCancel={() => {
+                    setEditingTask(null);
+                    setIsAddingTask(false);
+                  }} 
+                />
+              )}
+            </div>
+
+            {browserAgentResults.length > 0 && (
+              <div className="mt-6 bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700">
+                <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+                  <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-200">Results</h2>
+                </div>
+                <div className="divide-y divide-gray-200 dark:divide-gray-700">
+                  {browserAgentResults.map(result => {
+                    const task = tasks.find(t => t.id === result.taskId)
+                    return <>
+                      <div key={`result__id_${result.taskId}`} className="p-4">
+                        <h3 className="text-md font-medium text-gray-700 dark:text-gray-300 mb-2 space-mono-regular">Task {task.target_website} - "{task.search_keyword}"</h3>
+                        <div className="bg-gray-50 dark:bg-gray-900 p-3 rounded-md overflow-auto max-h-96" 
+                            dangerouslySetInnerHTML={{ __html: result.result }} />
+                      </div>
+                    </>
+                  })}
+                </div>
+              </div>
+            )}
+          </>
+        )
+      }
+      
     </>
   );
 }
-
