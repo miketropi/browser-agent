@@ -3,6 +3,7 @@ import os
 import io
 import random
 from dotenv import load_dotenv
+from bs4 import BeautifulSoup
 load_dotenv()
 
 os.environ["PYTHONIOENCODING"] = "utf-8"
@@ -162,6 +163,36 @@ def parse_proxy_data(proxy_data):
                 proxy_list.append(proxy_info)
     return proxy_list
 
+def extract_ip_and_address(html: str):
+    """Extract IP address and full address from embedded JSON in <pre> tag inside HTML."""
+    soup = BeautifulSoup(html, "html.parser")
+    pre_tag = soup.find("pre")
+    if not pre_tag:
+        return None, "No <pre> tag found"
+
+    try:
+        data = json.loads(pre_tag.text)
+    except json.JSONDecodeError:
+        return None, "Invalid JSON in <pre>"
+
+    ip = data.get("ip", "Unknown IP")
+    providers = data.get("providers", {})
+
+    def build_address(provider_data):
+        parts = [provider_data.get("city"), provider_data.get("zip_code"), provider_data.get("country")]
+        return ", ".join(part for part in parts if part)
+
+    # Choose best provider in order of preference
+    for name in ["ip2location", "maxmind", "dbip", "ipinfo"]:
+        if name in providers:
+            full_address = build_address(providers[name])
+            if full_address:
+                break
+    else:
+        full_address = "Unknown Address"
+
+    return ip, full_address
+
 async def run_browser_agent_v2(task):
     """
     Run the browser agent to execute the task
@@ -236,7 +267,10 @@ async def run_browser_agent_v2(task):
 
             # Get full HTML content of the page
             content = await page.content()
-            print(content)
+            ip, address = extract_ip_and_address(content)
+
+            print(f"_____IP: {ip}")
+            print(f"_____ADDRESS: {address}")
 
             # Close all tabs in all contexts
             for context in __browser.contexts:
@@ -289,8 +323,8 @@ async def run_browser_agent_v2(task):
             
             # await main_browser.close()
             # await cdp_browser.close()
-
-            return result
+            # return result and id & address format string
+            return f"result: {result} <p>IP: {ip} - Address: {address}</p>"
         finally:
             print(f"done")
       
