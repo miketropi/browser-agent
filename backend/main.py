@@ -217,6 +217,10 @@ async def run_browser_agent_v2(task):
     * If not found on the current page: Scroll to end page click the "Next" button (or next page numbers) at the bottom of Google to check subsequent pages.
 4. Visit the Target Website:
     * Once you find a result matching the domain, click the link to navigate to {target_website}.
+    * Please **scroll down to the end of the page** 
+    * Next, please **scroll down to 10000px**
+    * Find and copy the title of the web page.
+5. Complete the task, return the result.
 """ 
         
         # Test prompt

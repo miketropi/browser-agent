@@ -20,6 +20,7 @@ const initialTasks = [
 
 export default function TaskBoard() {
   const [tasks, setTasks] = useState([]);
+  const [settings, setSettings] = useState({});
 
   // get tasks from backend
   const getTasks = async () => {
@@ -28,8 +29,16 @@ export default function TaskBoard() {
     setTasks([...result.tasks])
   }
 
+  const getSettings = async () => {
+    const result = await window.pywebview.api.get_settings()
+    // console.log('___Get settings result:', typeof result.settings)
+    // console.log('___Get settings result:', result.settings)
+    setSettings(result.settings)
+  }
+
   useEffect(() => {
     getTasks()
+    getSettings()
   }, [])
 
   const handleTaskUpdate = (updatedTasks) => {
@@ -39,7 +48,7 @@ export default function TaskBoard() {
   return (
     <div>
       <h1 className="text-xl font-bold mb-6">Task Board</h1>
-      <TaskList tasksData={tasks} onTaskUpdate={handleTaskUpdate} />
+      <TaskList tasksData={tasks} onTaskUpdate={handleTaskUpdate} settings={settings} />
     </div>
   )
 }

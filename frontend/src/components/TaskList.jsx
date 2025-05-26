@@ -145,7 +145,7 @@ const TaskForm = ({ task, onSave, onCancel }) => {
   );
 };
 
-export default function TaskList({ tasksData, onTaskUpdate }) {
+export default function TaskList({ tasksData, onTaskUpdate, settings }) {
   const [tasks, setTasks] = useState(tasksData);
   const [editingTask, setEditingTask] = useState(null);
   const [isAddingTask, setIsAddingTask] = useState(false);
@@ -292,7 +292,10 @@ export default function TaskList({ tasksData, onTaskUpdate }) {
     setIsRunningTasks(true)
     // return;
     // loop and handle async for each item doing step by step task item, and wait for all tasks to complete, and then set isRunningTasks to false, only for tasks status is pending
-    for (const task of pendingTasks) {
+    for (const [index, task] of pendingTasks.entries()) {
+      let __delay = (settings?.processDelay ? parseInt(settings?.processDelay) * 1000 : 1000)
+      if(index > 0) { await delay(__delay) } 
+
       // update task status to doing
       // setTasks(prev => prev.map(t => t.id === task.id ? { ...t, status: 'doing' } : {...t}))
       
@@ -304,6 +307,7 @@ export default function TaskList({ tasksData, onTaskUpdate }) {
 
       console.log('___Task status updated to doing:', task)
       const result = await browserAgent(task)
+
       await delay(1000)
 
       console.log('___Browser agent result:', result)
@@ -330,7 +334,7 @@ export default function TaskList({ tasksData, onTaskUpdate }) {
 
   return (
     <>
-      {/* { JSON.stringify(taskListQueue) } */}
+      { JSON.stringify(settings) }
       {
         isRunningTasks && (
 
