@@ -281,11 +281,12 @@ async def run_browser_agent_v2(task):
                 for page in context.pages:
                     await page.close()
         
-
         browser_use_browser2 = Browser( 
             config=BrowserConfig(
-                headless=False,
+                headless=False, 
                 cdp_url=cdp_url,
+                # proxy=ProxySettings(server="https://pr.oxylabs.io:7777", username="customer-mikeh_MknsH-cc-AU-city-melbourne", 
+                # password="Hieuhuynh_1991")
             )
         )
 
