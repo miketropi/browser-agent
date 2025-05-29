@@ -276,9 +276,11 @@ async def run_browser_agent_v2(task):
             print(f"_____IP: {ip}")
             print(f"_____ADDRESS: {address}")
 
-            # Close all tabs in all contexts
             for context in __browser.contexts:
-                for page in context.pages:
+                pages = context.pages
+                for i, page in enumerate(pages):
+                    if i == 0:
+                        continue  
                     await page.close()
         
 

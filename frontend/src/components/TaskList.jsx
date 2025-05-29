@@ -307,7 +307,7 @@ export default function TaskList({ tasksData, onTaskUpdate, settings }) {
 
       console.log('___Task status updated to doing:', task)
       const result = await browserAgent(task)
-
+      // const result = 'test';
       await delay(1000)
 
       console.log('___Browser agent result:', result)
@@ -334,7 +334,7 @@ export default function TaskList({ tasksData, onTaskUpdate, settings }) {
 
   return (
     <>
-      { JSON.stringify(settings) }
+      {/* { JSON.stringify(settings) } */}
       {
         isRunningTasks && (
 
