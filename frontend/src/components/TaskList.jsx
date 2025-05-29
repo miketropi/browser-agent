@@ -329,12 +329,24 @@ export default function TaskList({ tasksData, onTaskUpdate, settings }) {
       setTaskListQueue(__tasks2)
     }
 
+    if (settings.enableRepeat == "1") {
+      await delay(parseInt(settings.repeatAfter) * 1000)
+
+      // update task status to pending
+      let __tasks3 = [...taskListQueue]
+      for (const task of __tasks3) { task.status = 'pending' }
+      setTaskListQueue(__tasks3)
+      console.log('___Task status updated to pending:', __tasks3)
+
+      handleRunTasks() 
+    }
+
     // setIsRunningTasks(false)
   };
 
   return (
     <>
-      {/* { JSON.stringify(settings) }  */}
+      { JSON.stringify(settings) } 
       {
         isRunningTasks && (
 

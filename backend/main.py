@@ -37,8 +37,9 @@ log = LogHistory('log.json')
 
 
 from langchain_openai import ChatOpenAI
-from browser_use import Agent, AgentHistoryList, Browser, BrowserConfig
-from browser_use.browser.browser import ProxySettings
+from browser_use import Agent, AgentHistoryList, Browser, BrowserConfig, BrowserSession, BrowserProfile
+# from browser_use.browser.browser import ProxySettings
+
 # from playwright._impl._api_structures import ProxySettings
 
 from browser_use.browser.context import BrowserContext, BrowserContextConfig
@@ -254,41 +255,78 @@ async def run_browser_agent_v2(task):
             )
 
         print(f"_____LLM2: 1")
-        cdp_url = f"http://localhost:9222" 
-        async with async_playwright() as p:
-            __browser = await p.chromium.connect_over_cdp(cdp_url)
+        # cdp_url = f"http://localhost:9222" 
+        # async with async_playwright() as p:
+        #     __browser = await p.chromium.connect_over_cdp(cdp_url)
 
-            context = __browser.contexts[0] if __browser.contexts else await __browser.new_context()
+        #     context = __browser.contexts[0] if __browser.contexts else await __browser.new_context()
 
-            # Open a new page (tab)
-            page = await context.new_page()
+        #     # Open a new page (tab)
+        #     page = await context.new_page()
 
-            # Navigate to the target URL
-            await page.goto("https://ip.oxylabs.io/location")
+        #     # Navigate to the target URL
+        #     await page.goto("https://ip.oxylabs.io/location")
 
-            # Wait for content to load
-            await page.wait_for_load_state("load")
+        #     # Wait for content to load
+        #     await page.wait_for_load_state("load")
 
-            # Get full HTML content of the page
-            content = await page.content()
-            ip, address = extract_ip_and_address(content)
+        #     # Get full HTML content of the page
+        #     content = await page.content()
+        #     ip, address = extract_ip_and_address(content)
 
-            print(f"_____IP: {ip}")
-            print(f"_____ADDRESS: {address}")
+        #     print(f"_____IP: {ip}")
+        #     print(f"_____ADDRESS: {address}")
 
-            # Close all tabs in all contexts
-            for context in __browser.contexts:
-                for page in context.pages:
-                    await page.close()
+        #     # Close all tabs in all contexts
+        #     for context in __browser.contexts:
+        #         for page in context.pages:
+        #             await page.close()
         
-        browser_use_browser2 = Browser( 
-            config=BrowserConfig(
-                headless=False, 
-                cdp_url=cdp_url,
-                # proxy=ProxySettings(server="https://pr.oxylabs.io:7777", username="customer-mikeh_MknsH-cc-AU-city-melbourne", 
-                # password="Hieuhuynh_1991")
-            )
+        chrome_path = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+        browser_profile = BrowserProfile(
+            headless=False,
+            executable_path=chrome_path,
+            # cookies_file="path/to/cookies.json",
+            wait_for_network_idle_page_load_time=3.0,
+            viewport={"width": 1280, "height": 1100},
+            locale='en-US',
+            user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.102 Safari/537.36',
+            highlight_elements=True,
+            viewport_expansion=500,
+            # allowed_domains=['*.google.com', 'http*://*.wikipedia.org'],
+            # user_data_dir=None,
+            proxy={
+                "server": "https://pr.oxylabs.io:7777",
+                "username": "customer-mikeh_MknsH-cc-AU-city-melbourne",
+                "password": "Hieuhuynh_1991"
+            }
         )
+
+        browser_session = BrowserSession(
+            browser_profile=browser_profile,
+            # headless=True,                          # extra kwargs to the session override the defaults in the profile
+        )
+
+        await browser_session.start()
+        page = await browser_session.get_current_page()
+        await page.goto('https://ip.oxylabs.io/location')
+        await page.wait_for_load_state("load")
+        content = await page.content()
+        ip, address = extract_ip_and_address(content)
+        print(f"_____IP: {ip}")
+        print(f"_____ADDRESS: {address}")
+
+        # browser_use_browser2 = Browser( 
+        #     config=BrowserConfig(
+        #         headless=False, 
+        #         executable_path=chrome_path,  # macOS path
+        #         # profile_directory=profile_directory,
+        #         # extra_chromium_args=['--profile-directory=Default'],
+        #         # cdp_url=cdp_url,
+        #         # proxy=ProxySettings(server="https://pr.oxylabs.io:7777", username="customer-mikeh_MknsH-cc-AU-city-melbourne", 
+        #         # password="Hieuhuynh_1991")
+        #     )
+        # )
 
         print(f"_____BROWSER_USE_BROWSER2: 1")
         __message_context = f"You play as a normal user, following the given tasks exactly to complete the task."
@@ -300,12 +338,13 @@ async def run_browser_agent_v2(task):
             agent = Agent(
                 task=message,
                 message_context=__message_context,
-                initial_actions=initial_actions,
+                # initial_actions=initial_actions,
                 llm=llm2,
-                browser=browser_use_browser2, 
-                use_vision=False,
-                max_failures=2,
-                max_actions_per_step=1,
+                # browser=browser_use_browser2, 
+                browser_session=browser_session,
+                use_vision=True,
+                # max_failures=2,
+                # max_actions_per_step=1,
             )
 
             print(f"_____AGENT: 1")
