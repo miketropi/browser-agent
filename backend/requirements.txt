@@ -27,6 +27,8 @@ playwright==1.52.0
 #browser_use==0.1.40
 browser_use==0.2.5
 aiosqlite==0.19.0
+gspread==6.2.1
+oauth2client==4.1.3
 
 # Logging package
 python-json-logger==2.0.7  # JSON formatting for logs

@@ -4,6 +4,9 @@ import io
 import random
 from dotenv import load_dotenv
 from bs4 import BeautifulSoup
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
+from datetime import datetime
 load_dotenv()
 
 os.environ["PYTHONIOENCODING"] = "utf-8"
@@ -194,6 +197,35 @@ def extract_ip_and_address(html: str):
 
     return ip, full_address
 
+def append_row_to_sheet(json_keyfile_path, sheet_id, row_data):
+    """
+    Add a row to Google Sheet.
+
+    Args:
+        json_keyfile_path (str): Path to the credentials JSON file.
+        sheet_name (str): Name of the Google Sheet to access.
+        row_data (list): List of values to add, e.g.: ["Name", "Email", "Role"]
+    """
+    # Scope needed to access Sheets API and Google Drive
+    scope = [
+        "https://spreadsheets.google.com/feeds",
+        "https://www.googleapis.com/auth/drive"
+    ]
+
+    # Authenticate and create client
+    creds = ServiceAccountCredentials.from_json_keyfile_name(json_keyfile_path, scope)
+    client = gspread.authorize(creds)
+
+    # Open sheet
+    # sheet = client.open(sheet_name).sheet1  # sheet1 is the first sheet
+    sheet = client.open_by_key(sheet_id).sheet1
+
+
+    # Add row
+    sheet.append_row(row_data)
+
+    print("✅ Added row to Google Sheet.")
+
 async def run_browser_agent_v2(task):
     """
     Run the browser agent to execute the task
@@ -364,6 +396,24 @@ async def run_browser_agent_v2(task):
                     'result': f"result: {result}",
                     'add': f"IP: {ip} --- Address: {address}"
                 }
+            )
+
+            # Get current file path
+            current_file = Path(__file__).resolve()
+            # Up 1 level
+            parent_dir = current_file.parent.parent
+            gg_json_path = parent_dir / "gg.json"
+
+            # current time
+            current_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+            # Gg sheet id from .env
+            gg_sheet_id = os.getenv('GG_SHEET_ID')
+
+            append_row_to_sheet(
+                json_keyfile_path=gg_json_path,
+                sheet_id=gg_sheet_id,
+                row_data=[f"{target_website} --- {search_keyword}", f"{result}", f"{ip} --- {address}", f"{current_time}"]
             )
             
             # Ensure result is properly encoded for Windows console output
