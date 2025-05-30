@@ -282,17 +282,18 @@ async def run_browser_agent_v2(task):
         #         for page in context.pages:
         #             await page.close()
         
-        chrome_path = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+        chrome_path = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
+        # '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
         browser_profile = BrowserProfile(
             headless=False,
             executable_path=chrome_path,
             # cookies_file="path/to/cookies.json",
             wait_for_network_idle_page_load_time=3.0,
-            viewport={"width": 1280, "height": 1100},
+            viewport={"width": 860, "height": 600},
             locale='en-US',
-            user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.102 Safari/537.36',
+            # user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.102 Safari/537.36',
             highlight_elements=True,
-            viewport_expansion=500,
+            # viewport_expansion=500,
             # allowed_domains=['*.google.com', 'http*://*.wikipedia.org'],
             # user_data_dir=None,
             proxy={
@@ -340,6 +341,7 @@ async def run_browser_agent_v2(task):
                 message_context=__message_context,
                 # initial_actions=initial_actions,
                 llm=llm2,
+                # max_steps=25,
                 # browser=browser_use_browser2, 
                 browser_session=browser_session,
                 use_vision=True,
@@ -357,8 +359,10 @@ async def run_browser_agent_v2(task):
             log.add_entry(
                 action='run_browser_agent',
                 details={
-                    'message': message.encode('ascii', 'replace').decode('ascii') if isinstance(message, str) else message,
-                    'result': json.dumps(result, ensure_ascii=True) if isinstance(result, dict) else str(result).encode('ascii', 'replace').decode('ascii')
+                    # 'message': message.encode('ascii', 'replace').decode('ascii') if isinstance(message, str) else message,
+                    'target': f"{target_website} --- {search_keyword}",
+                    'result': f"result: {result}",
+                    'add': f"IP: {ip} --- Address: {address}"
                 }
             )
             

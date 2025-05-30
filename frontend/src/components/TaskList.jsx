@@ -346,7 +346,7 @@ export default function TaskList({ tasksData, onTaskUpdate, settings }) {
 
   return (
     <>
-      { JSON.stringify(settings) } 
+      {/* { JSON.stringify(settings) }  */}
       {
         isRunningTasks && (
 
