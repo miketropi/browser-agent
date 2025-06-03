@@ -9,23 +9,12 @@ from oauth2client.service_account import ServiceAccountCredentials
 from datetime import datetime
 load_dotenv()
 
-os.environ["PYTHONIOENCODING"] = "utf-8"
-# if sys.stdout is not None:
-#     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
-# if sys.stderr is not None:
-#     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
-
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 import uvicorn
 import threading
-
-
-# from fastapi.middleware.cors import CORSMiddleware
 import webview
-# from pydantic import SecretStr
-# from pydantic.v1 import SecretStr  # For v2 compatibility
 
 from database import Base, engine
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -41,27 +30,12 @@ log = LogHistory('log.json')
 
 from langchain_openai import ChatOpenAI
 from browser_use import Agent, AgentHistoryList, Browser, BrowserConfig, BrowserSession, BrowserProfile
-# from browser_use.browser.browser import ProxySettings
-
-# from playwright._impl._api_structures import ProxySettings
 
 from browser_use.browser.context import BrowserContext, BrowserContextConfig
 from pathlib import Path
 from langchain.prompts import load_prompt
 from playwright.sync_api import sync_playwright
 from playwright.async_api import async_playwright
-
-async def get_chromium():
-    async with async_playwright() as p:
-        return await p.chromium.executable_path
-        return {
-            "chromium": p.chromium.executable_path,
-            "firefox": p.firefox.executable_path,
-            "webkit": p.webkit.executable_path
-        }
-
-__chromium = get_chromium()
-
 import asyncio
 import json
 
@@ -82,9 +56,6 @@ if getattr(sys, 'frozen', False):
 else:
     # Normal development mode
     load_dotenv()
-
-# Set Playwright path for PyInstaller bundles
-# os.environ['PLAYWRIGHT_BROWSERS_PATH'] = os.path.join(os.getcwd(), 'playwright_browsers')
 
 # Get correct base path for templates
 if getattr(sys, 'frozen', False):
@@ -127,10 +98,10 @@ def init_database():
 init_database()
 
 
-llm = ChatOpenAI(
-    model="gpt-4o",
-    openai_api_key=os.getenv('OPENAI_API_KEY')
-    )
+# llm = ChatOpenAI(
+#     model="gpt-4o",
+#     openai_api_key=os.getenv('OPENAI_API_KEY')
+#     )
 
 # llm = ChatOpenAI(
 #     base_url='https://api.deepseek.com/v3',
@@ -314,17 +285,20 @@ async def run_browser_agent_v2(task):
         #         for page in context.pages:
         #             await page.close()
         
-        chrome_path = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+        chrome_path = os.getenv('CHROME_INSTANCE_PATH')
+        brave_path = os.getenv('BRAVE_INSTANCE_PATH')
+
         browser_profile = BrowserProfile(
             headless=False,
-            executable_path=chrome_path,
+            executable_path= brave_path, # chrome_path,
             # cookies_file="path/to/cookies.json",
             wait_for_network_idle_page_load_time=3.0,
-            viewport={"width": 1280, "height": 1100},
             locale='en-US',
             user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.102 Safari/537.36',
             highlight_elements=True,
             viewport_expansion=500,
+            viewport={'width': 920, 'height': 674},
+            device_scale_factor=1,  
             # allowed_domains=['*.google.com', 'http*://*.wikipedia.org'],
             # user_data_dir=None,
             proxy={
@@ -347,6 +321,7 @@ async def run_browser_agent_v2(task):
         ip, address = extract_ip_and_address(content)
         print(f"_____IP: {ip}")
         print(f"_____ADDRESS: {address}")
+        await page.close() 
 
         # browser_use_browser2 = Browser( 
         #     config=BrowserConfig(
@@ -416,6 +391,10 @@ async def run_browser_agent_v2(task):
             
             # Ensure result is properly encoded for Windows console output
             result = sanitize_unicode(result)
+
+            # Close all tabs in all contexts
+            # await browser_session.stop()
+            
             
             # await main_browser.close()
             # await cdp_browser.close()
