@@ -7,25 +7,15 @@ from bs4 import BeautifulSoup
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 from datetime import datetime
+import re 
 load_dotenv()
-
-os.environ["PYTHONIOENCODING"] = "utf-8"
-# if sys.stdout is not None:
-#     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', errors='replace')
-# if sys.stderr is not None:
-#     sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8', errors='replace')
 
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse
 import uvicorn
 import threading
-
-
-# from fastapi.middleware.cors import CORSMiddleware
 import webview
-# from pydantic import SecretStr
-# from pydantic.v1 import SecretStr  # For v2 compatibility
 
 from database import Base, engine
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -41,27 +31,12 @@ log = LogHistory('log.json')
 
 from langchain_openai import ChatOpenAI
 from browser_use import Agent, AgentHistoryList, Browser, BrowserConfig, BrowserSession, BrowserProfile
-# from browser_use.browser.browser import ProxySettings
-
-# from playwright._impl._api_structures import ProxySettings
 
 from browser_use.browser.context import BrowserContext, BrowserContextConfig
 from pathlib import Path
 from langchain.prompts import load_prompt
 from playwright.sync_api import sync_playwright
 from playwright.async_api import async_playwright
-
-async def get_chromium():
-    async with async_playwright() as p:
-        return await p.chromium.executable_path
-        return {
-            "chromium": p.chromium.executable_path,
-            "firefox": p.firefox.executable_path,
-            "webkit": p.webkit.executable_path
-        }
-
-__chromium = get_chromium()
-
 import asyncio
 import json
 
@@ -82,9 +57,6 @@ if getattr(sys, 'frozen', False):
 else:
     # Normal development mode
     load_dotenv()
-
-# Set Playwright path for PyInstaller bundles
-# os.environ['PLAYWRIGHT_BROWSERS_PATH'] = os.path.join(os.getcwd(), 'playwright_browsers')
 
 # Get correct base path for templates
 if getattr(sys, 'frozen', False):
@@ -127,10 +99,10 @@ def init_database():
 init_database()
 
 
-llm = ChatOpenAI(
-    model="gpt-4o",
-    openai_api_key=os.getenv('OPENAI_API_KEY')
-    )
+# llm = ChatOpenAI(
+#     model="gpt-4o",
+#     openai_api_key=os.getenv('OPENAI_API_KEY')
+#     )
 
 # llm = ChatOpenAI(
 #     base_url='https://api.deepseek.com/v3',
@@ -183,7 +155,8 @@ def extract_ip_and_address(html: str):
     providers = data.get("providers", {})
 
     def build_address(provider_data):
-        parts = [provider_data.get("city"), provider_data.get("zip_code"), provider_data.get("country")]
+        # country, zip_code, city
+        parts = [provider_data.get("country"), provider_data.get("zip_code"), provider_data.get("city")]
         return ", ".join(part for part in parts if part)
 
     # Choose best provider in order of preference
@@ -196,6 +169,28 @@ def extract_ip_and_address(html: str):
         full_address = "Unknown Address"
 
     return ip, full_address
+
+def find_url_from_string(text):
+    """
+    Extract full URLs from a string using regex pattern matching.
+    
+    Args:
+        text (str): The input string to search for URLs
+        
+    Returns:
+        str: The first complete URL found in the string, or empty string if no URL is found
+    """
+    if not text:
+        return ""
+        
+    # URL regex pattern that matches complete http/https URLs including path, query params, and fragments
+    url_pattern = r'https?://(?:[-\w.]|(?:%[\da-fA-F]{2}))+(?:/[^\s]*)?'
+    
+    # Find all URLs in the text
+    urls = re.findall(url_pattern, text)
+    
+    # Return the first URL found, or empty string if no URLs exist
+    return urls[0] if urls else ""
 
 def append_row_to_sheet(json_keyfile_path, sheet_id, row_data):
     """
@@ -242,18 +237,19 @@ async def run_browser_agent_v2(task):
         loop_count = task.get('loop', 1)
 
         # Create the task message
+       # Create the task message
         message = f"""
 1. At current tab, go to https://google.com (important) 
 2. In the Google search bar, type "{search_keyword}" and press Enter.
 3. Locate the Specific Domain in Results:
-    * Check the search results for links under the domain {target_website} (very important), prioritize results that are "Sponsored".
-    * If not found on the current page: Scroll to end page click the "Next" button (or next page numbers) at the bottom of Google to check subsequent pages.
+    * Check the search results for links under the domain {target_website} and prioritize results that are "Sponsored" (very important).
+    * If not found then return & end task.
 4. Visit the Target Website:
     * Once you find a result matching the domain, click the link to navigate to {target_website}.
     * Please **scroll down to the end of the page** 
     * Next, please **scroll down to 10000px**
     * Find and copy the title of the web page.
-5. Complete the task, return the result.
+5. Complete the task, return the result and full url of the last page.
 """ 
         
         # Test prompt
@@ -314,18 +310,22 @@ async def run_browser_agent_v2(task):
         #         for page in context.pages:
         #             await page.close()
         
-        chrome_path = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'
-        # '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
+        chrome_path = os.getenv('CHROME_INSTANCE_PATH')
+        brave_path = os.getenv('BRAVE_INSTANCE_PATH')
+
         browser_profile = BrowserProfile(
             headless=False,
             executable_path=chrome_path,
+            # user_data_dir='Default',
             # cookies_file="path/to/cookies.json",
+            # profile_directory='Default',
             wait_for_network_idle_page_load_time=3.0,
-            viewport={"width": 860, "height": 600},
             locale='en-US',
-            # user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/85.0.4183.102 Safari/537.36',
+            # user_agent='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36',
             highlight_elements=True,
-            # viewport_expansion=500,
+            viewport_expansion=500,
+            viewport={'width': 920, 'height': 674},
+            device_scale_factor=1,  
             # allowed_domains=['*.google.com', 'http*://*.wikipedia.org'],
             # user_data_dir=None,
             proxy={
@@ -337,6 +337,7 @@ async def run_browser_agent_v2(task):
 
         browser_session = BrowserSession(
             browser_profile=browser_profile,
+            user_data_dir='Default'
             # headless=True,                          # extra kwargs to the session override the defaults in the profile
         )
 
@@ -348,6 +349,7 @@ async def run_browser_agent_v2(task):
         ip, address = extract_ip_and_address(content)
         print(f"_____IP: {ip}")
         print(f"_____ADDRESS: {address}")
+        # await page.close() 
 
         # browser_use_browser2 = Browser( 
         #     config=BrowserConfig(
@@ -373,7 +375,6 @@ async def run_browser_agent_v2(task):
                 message_context=__message_context,
                 # initial_actions=initial_actions,
                 llm=llm2,
-                # max_steps=25,
                 # browser=browser_use_browser2, 
                 browser_session=browser_session,
                 use_vision=True,
@@ -387,6 +388,10 @@ async def run_browser_agent_v2(task):
             history: AgentHistoryList = await agent.run()
             result = history.final_result()
 
+            # Extract website URL from result
+            websiteUrl = find_url_from_string(result)
+            print(f"_____WEBSITE_URL: {websiteUrl}")
+
             # Log the result - handle Unicode characters by replacing them with ASCII equivalents
             log.add_entry(
                 action='run_browser_agent',
@@ -394,7 +399,8 @@ async def run_browser_agent_v2(task):
                     # 'message': message.encode('ascii', 'replace').decode('ascii') if isinstance(message, str) else message,
                     'target': f"{target_website} --- {search_keyword}",
                     'result': f"result: {result}",
-                    'add': f"IP: {ip} --- Address: {address}"
+                    'add': f"IP: {ip} --- Address: {address}",
+                    'websiteUrl': f"Website URL: {websiteUrl}"
                 }
             )
 
@@ -413,16 +419,28 @@ async def run_browser_agent_v2(task):
             append_row_to_sheet(
                 json_keyfile_path=gg_json_path,
                 sheet_id=gg_sheet_id,
-                row_data=[f"{target_website} --- {search_keyword}", f"{result}", f"{ip} --- {address}", f"{current_time}"]
+                row_data=[
+                    f"{current_time}",
+                    f"{target_website}",
+                    "Chrome",
+                    f"{search_keyword}",
+                    f"{ip}",
+                    f"{address}",
+                    f"{websiteUrl}"
+                ]
             )
             
             # Ensure result is properly encoded for Windows console output
             result = sanitize_unicode(result)
+
+            # Close all tabs in all contexts
+            # await browser_session.stop()
+            
             
             # await main_browser.close()
             # await cdp_browser.close()
             # return result and id & address format string
-            return f"result: {result} <p>IP: {ip} - Address: {address}</p>"
+            return f"<p>result: {result}</p><hr /><p>IP: {ip} - Address: {address}</p><hr /><p>Website URL: {websiteUrl}</p>"
         finally:
             print(f"done")
       

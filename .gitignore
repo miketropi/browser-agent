@@ -6,5 +6,6 @@ backend/build
 backend/dist
 backend/playwright_browsers
 backend/sql_app.db
+backend/Default
 log.json
 gg.json
